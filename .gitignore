@@ -1,3 +1,10 @@
+#Folder 
+/DynamixelSDK/
+/dxl_control/
+
+#Goturn model
+goturn.caffemodel
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

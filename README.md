@@ -2,7 +2,7 @@
 
 Code for master thesis project in Cognitive Science
 
-## It's reccomended to create a virtual environment after cloning the repository.
+### It's reccomended to create a virtual environment after cloning the repository.
 python3 -m venv env
 
 ### Activate environment

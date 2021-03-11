@@ -1,6 +1,16 @@
 # MasterThesisObjectTracking
 
-Code Master thesis in Cognitive Science
+Code for master thesis project in Cognitive Science
+
+## It's reccomended to create a virtual environment after cloning the repository.
+python3 -m venv env
+
+### Activate environment
+source env/bin/activate
+
+### Install packages listed in requirements.txt
+
+python3 -m pip install -r requirements.txt
 
 Requires additionally 
 Dynamixel libraries

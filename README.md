@@ -9,12 +9,13 @@ Trackers from the Opencv library were evaluated in a non-stationary camera using
 python3 -m venv env
 ```
 ### Activate environment
+```
 source env/bin/activate
-
+```
 ### Install packages listed in requirements.txt
-
+```
 python3 -m pip install -r requirements.txt
-
+```
 Requires additionally 
 Dynamixel control library
 

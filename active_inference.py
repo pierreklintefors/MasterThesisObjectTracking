@@ -35,7 +35,7 @@ def draw_contours(low_bound, high_bound, image):
 
 
 
-    contours, hierarchy =  cv2.findContours(curr_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    img2, contours, hierarchy =  cv2.findContours(curr_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 
 
 

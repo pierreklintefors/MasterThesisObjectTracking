@@ -5,8 +5,9 @@ Code for master thesis project in Cognitive Science
 Trackers from the Opencv library were evaluated in a non-stationary camera using Dynamixel 12ax motors
 
 ### It's recomended to create a virtual environment after cloning the repository.
+```
 python3 -m venv env
-
+```
 ### Activate environment
 source env/bin/activate
 

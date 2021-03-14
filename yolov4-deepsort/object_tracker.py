@@ -25,7 +25,14 @@ from deep_sort.tracker import Tracker
 from tools import generate_detections as gdet
 
 #Dynamixel imports
-from dxl_control.dxl_control.Ax12 import *
+from dxl_control.Ax12 import *
+
+#servo motors imports
+from servo_motors import *
+
+import timer_seconds as timer_sec
+
+import csv
 
 
 flags.DEFINE_string('framework', 'tf', '(tf, tflite, trt')
@@ -84,11 +91,14 @@ def main(_argv):
     Ax12.set_baudrate()
 
     #Declaring servomotor for pan and tilt
-    panning_motor = Ax12(1)
-    tilt_motor = Ax12(2)
+    camera_panning_motor = Ax12(1)
+    camera_tilt_motor = Ax12(2)
 
-    start_pan = 650
-    start_tilt = 120
+    start_pan = 500
+    start_tilt = 180
+
+    # define video codec
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
 
 
 
@@ -97,16 +107,46 @@ def main(_argv):
     time.sleep(0.2)
 
     #Set start position
-    panning_motor.set_position(start_pan)
-    tilt_motor.set_position(start_tilt)
+    camera_panning_motor.set_position(start_pan)
+    camera_tilt_motor.set_position(start_tilt)
 
-    panning_motor.set_torque_limit(1023)
-    tilt_motor.set_torque_limit(1023)
+    camera_panning_motor.set_torque_limit(1023)
+    camera_tilt_motor.set_torque_limit(1023)
 
-    panning_motor.set_moving_speed(1000)
-    tilt_motor.set_moving_speed(1000)
+    camera_panning_motor.set_moving_speed(1000)
+    camera_tilt_motor.set_moving_speed(1000)
 
-    one_degree = int(panning_motor.get_torque_limit()/300)
+    one_degree = int(camera_panning_motor.get_torque_limit()/300)
+
+    # Create class instance of second counter
+    main_count = timer_sec.SecondCounter()
+
+    # Create class instance of second counter when tracker is in ROI
+    roi_count = timer_sec.Counter_tread()
+
+    roi_seconds = 0
+
+    returned_roi_seconds = 0
+
+    in_roi = False
+    been_in_roi = False
+    first_entry = True
+    start_count = True
+    left_roi = False
+    roi_seconds_start = 0
+    roi_seconds_stop = 0
+
+    last_move_time = 0
+
+
+    roi = 30
+    margin = 60
+
+
+    #Start position for object mover servos
+    object_move_pos = [500, 200, 822, 200]
+
+    object_speed = 100
 
     #Function that returns center of ROI
     def goalPosition (bbox):
@@ -118,13 +158,16 @@ def main(_argv):
         center = [center_x, center_y]
         return center
 
-    #Function that caluculates distance between center of frame and center of ROI
+    # Function that calculates distance between center of frame and center of ROI
     def calculateDistance(cam_center, track_center):
+        ROI = False
         x_diff = cam_center[0] - track_center[0]
         y_diff = cam_center[1] - track_center[1]
         difference = [x_diff, y_diff]
-        print(difference)
-        return difference
+
+        if abs(x_diff) <= roi and abs(y_diff) <= roi:
+            ROI = True
+        return difference, ROI
 
     #Function to move motors toward their goal position
     def moveMotors(diff_x, diff_y, bbox):
@@ -135,26 +178,26 @@ def main(_argv):
         movement_X = int(abs(diff_x)/16)
         movement_Y = int(abs(diff_y)/16)
         if diff_x > 0 + x_margin:
-            panning_motor.set_position(panning_motor.get_position() + movement_X + 5)
+            camera_panning_motor.set_position(camera_panning_motor.get_position() + movement_X + 5)
             if diff_x < 0 + ROI:
-                panning_motor.set_position(panning_motor.get_position() + one_degree + 1)
+                camera_panning_motor.set_position(camera_panning_motor.get_position() + one_degree + 1)
         elif diff_x < 0 - x_margin:
-            panning_motor.set_position(panning_motor.get_position() - movement_X)
+            camera_panning_motor.set_position(camera_panning_motor.get_position() - movement_X)
             if diff_x > 0 - ROI:
-                panning_motor.set_position(panning_motor.get_position() - one_degree)
+                camera_panning_motor.set_position(camera_panning_motor.get_position() - one_degree)
         else:
-            panning_motor.set_position(panning_motor.get_position())
+            camera_panning_motor.set_position(camera_panning_motor.get_position())
         
         if diff_y > 0 + y_margin:
-            tilt_motor.set_position(tilt_motor.get_position() - movement_Y)
+            camera_tilt_motor.set_position(camera_tilt_motor.get_position() - movement_Y)
             if diff_y > 0 + ROI:
-                tilt_motor.set_position(tilt_motor.get_position() - one_degree)
+                camera_tilt_motor.set_position(camera_tilt_motor.get_position() - one_degree)
         elif diff_y < 0 - y_margin:
-            tilt_motor.set_position(tilt_motor.get_position() + movement_Y + 5)
+            camera_tilt_motor.set_position(camera_tilt_motor.get_position() + movement_Y + 5)
             if diff_y < 0 - ROI:
-                tilt_motor.set_position(tilt_motor.get_position() + one_degree + 2)
+                camera_tilt_motor.set_position(camera_tilt_motor.get_position() + one_degree + 2)
         else:
-            tilt_motor.set_position(tilt_motor.get_position())
+            camera_tilt_motor.set_position(camera_tilt_motor.get_position())
 
 
 
@@ -176,7 +219,36 @@ def main(_argv):
         codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
         out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
 
+
+    import os
+    import shutil
+
+
+
+
+
+
+    output_dir = "{}/outputs".format(os.getcwd())
+
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir)
+
+    frames_dir = "{}/frames".format(output_dir)
+    text_dir = "{}/txt_files".format(output_dir)
+    video_dir = "{}/video".format(output_dir)
+    os.makedirs(frames_dir)
+    os.makedirs(text_dir)
+    os.makedirs(video_dir)
+
+    # Create output
+    return_value, frame = vid.read()
+    videOutput = cv2.VideoWriter("{}/output.avi".format(video_dir), fourcc, 30, (frame.shape[1], frame.shape[0]))
+    videoOutput_no_box = cv2.VideoWriter("{}/output_no_graphics.avi".format(video_dir), fourcc, 30, (frame.shape[1], frame.shape[0]))
+
     frame_num = 0
+    # start the main count of seconds
+    main_count.start()
     # while video is running
     while True:
         return_value, frame = vid.read()
@@ -193,6 +265,14 @@ def main(_argv):
         image_data = image_data / 255.
         image_data = image_data[np.newaxis, ...].astype(np.float32)
         start_time = time.time()
+
+        videoOutput_no_box.write(frame)
+
+        cv2.imwrite("{}/frame_{}.jpg".format(frames_dir,frame_num), frame)
+
+
+        #Move object servos
+        move_object_motors(object_move_pos, speed= object_speed)
 
         # run detections on tflite if flag is set
         if FLAGS.framework == 'tflite':
@@ -246,7 +326,7 @@ def main(_argv):
         #allowed_classes = list(class_names.values())
         
         # custom allowed classes (uncomment line below to customize tracker for only people)
-        allowed_classes = ['cell phone', 'orange', 'cat']
+        allowed_classes = ['cell phone', 'orange', 'cup']
 
         # loop through objects and use class index to get class name, allow only classes in allowed_classes list
         names = []
@@ -291,6 +371,7 @@ def main(_argv):
         cv2.circle(frame, (camera_center[0], camera_center[1]), radius= 1, color= (0, 255, 0), thickness= 10)
         cv2.putText(frame, "FPS {0}".format(str(int(fps))), (75, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
 
+        distance = [0,0]
         # update tracks
         for track in tracker.tracks:
             if not track.is_confirmed() or track.time_since_update > 1:
@@ -298,7 +379,8 @@ def main(_argv):
             bbox = track.to_tlbr()
             class_name = track.get_class()
             
-        # draw bbox on screen
+            tracksuccess = True
+            # draw bbox on screen
             color = colors[int(track.track_id) % len(colors)]
             color = [i * 255 for i in color]
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
@@ -313,7 +395,7 @@ def main(_argv):
 
          
 
-            distance = calculateDistance(camera_center, center)
+            distance, in_roi = calculateDistance(camera_center, center)
 
             moveMotors(distance[0], distance[1], bbox) #difference in x-cordinates rescpeticly y-cordinates
 
@@ -328,6 +410,85 @@ def main(_argv):
         print("FPS: %.2f" % fps)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        if main_count.peek() > 1 and main_count.peek() < 3:
+            object_move_pos = [500, 300, 850, 200 ]
+        if main_count.peek() > 3 and main_count.peek() < 5:
+            object_move_pos = [600, 500, 600, 2500]
+        if main_count.peek() > 8.5 and main_count.peek() < 8:
+            object_speed = 100
+            object_move_pos = [700, 450, 500, 200]
+        if main_count.peek() > 8.5 and main_count.peek() < 10:
+            object_speed = 150
+            object_move_pos = [800, 450, 500, 250]
+        if main_count.peek() > 8.5 and main_count.peek() < 12:
+            object_move_pos = [600, 450, 500, 250]
+        if main_count.peek() > 12 and main_count.peek() < 14:
+            object_move_pos = [500, 200, 820, 239]
+
+        ##Starts timer when the ROI is centered
+        if in_roi and tracksuccess:
+            if start_count:
+                roi_count.start()
+                start_count = False
+            if first_entry:
+                roi_seconds = roi_count.peek()
+            if left_roi:
+                roi_seconds_start = roi_count.peek()
+            been_in_roi = True
+            left_roi = False
+
+        ##Stops timer when ROI is not centered and accumulate time in counter
+        if been_in_roi and tracksuccess and in_roi is False :
+            print("roi_stop: {}".format(roi_seconds_stop))
+            if first_entry:
+                roi_seconds_stop = 0
+            else:
+                roi_seconds_stop = roi_count.peek() - roi_seconds_start
+            roi_seconds += roi_seconds_stop
+            been_in_roi = False
+            first_entry = False
+            left_roi = True
+
+
+       
+
+
+
+
+        cv2.putText(frame, "Sec {0}".format(str(int(main_count.peek()))), (500, 50), cv2.FONT_HERSHEY_COMPLEX, 1,
+                (0, 255, 255), 2)
+        cv2.putText(frame, "Sec in ROI {0}".format(str(int(roi_seconds))), (400, 85), cv2.FONT_HERSHEY_COMPLEX, 1,
+                (254, 0, 255), 2)
+
+        cv2.imshow("Frame", frame)
+
+        videOutput.write(frame)
+
+        mean_roi_sec = round((roi_seconds / main_count.peek()) * 100, 2)
+
+        camera_pos = [camera_panning_motor.get_position(), camera_tilt_motor]
+
+        bbox = track.to_tlbr() 
+
+        #Create a csv to store results
+        with open('outputs/output.csv', 'a', newline='') as csvfile:
+            fieldnames = ['Frame', 'FPS', 'Distance_x', 'Distance_y', 'bbox_1', 'bbox_2', 'bbox_3', 'bbox_4',
+                        'Prop_roi(%)', 'Time', 'Roi_time', 'Tracking_success', 'Refound_tracking', 'camera_pan',
+                        'camera_tilt', 'object_pan1', 'object_tilt1', 'object_tilt2', 'object_pan2']
+            csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            #Fill in values in csv file
+            if frame_num ==1:
+                csv_writer.writeheader()
+            csv_writer.writerow({'Frame': str(frame_num), 'FPS': str(fps) ,'Distance_x': str(distance[0]), 'Distance_y': str(distance[1]),
+                                'bbox_1': str(bbox[0]), 'bbox_2': str(bbox[1]), 'bbox_3': str(bbox[2]),
+                                'bbox_4': str(bbox[3]), 'Prop_roi(%)': str(mean_roi_sec), 'Time': str(round(main_count.peek(), 2)),
+                                'Roi_time': str(round(roi_seconds,2)), 'Tracking_success': str(tracksuccess),
+                                'Refound_tracking': str(refound), 'camera_pan': str(camera_pos[0]),
+                                'camera_tilt':str(camera_pos[1]), 'object_pan1':str(object_move_pos[0]),
+                                'object_tilt1':str(object_move_pos[1]), 'object_tilt2':str(object_move_pos[2]),
+                                'object_pan2':str(object_move_pos[3])})
+
 
         
         

@@ -4,7 +4,8 @@
 /yolov4-deepsort/checkpoints/
 
 #outputs
-**/[Oo]utput*
+**/[Oo]utputs*
+
 #Goturn model
 goturn.caffemodel
 

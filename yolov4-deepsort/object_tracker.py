@@ -101,7 +101,9 @@ def main(_argv):
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
 
 
+    bound_box = [0,0,0,0]
 
+    frames_per_second = 0
 
 
     time.sleep(0.2)
@@ -139,8 +141,14 @@ def main(_argv):
     last_move_time = 0
 
 
-    roi = 30
-    margin = 60
+    roi = 35
+    margin = 70
+
+    tracksuccess = False
+    track_lost = False
+    refound = 0
+
+    first_detection = True
 
 
     #Start position for object mover servos
@@ -164,42 +172,9 @@ def main(_argv):
         x_diff = cam_center[0] - track_center[0]
         y_diff = cam_center[1] - track_center[1]
         difference = [x_diff, y_diff]
-
         if abs(x_diff) <= roi and abs(y_diff) <= roi:
             ROI = True
         return difference, ROI
-
-    #Function to move motors toward their goal position
-    def moveMotors(diff_x, diff_y, bbox):
-        w, h = int(bbox[2]-int(bbox[0])), int(bbox[3]) - int(bbox[1]) 
-        x_margin = 40
-        y_margin = 40
-        ROI = int(x_margin /2)
-        movement_X = int(abs(diff_x)/16)
-        movement_Y = int(abs(diff_y)/16)
-        if diff_x > 0 + x_margin:
-            camera_panning_motor.set_position(camera_panning_motor.get_position() + movement_X + 5)
-            if diff_x < 0 + ROI:
-                camera_panning_motor.set_position(camera_panning_motor.get_position() + one_degree + 1)
-        elif diff_x < 0 - x_margin:
-            camera_panning_motor.set_position(camera_panning_motor.get_position() - movement_X)
-            if diff_x > 0 - ROI:
-                camera_panning_motor.set_position(camera_panning_motor.get_position() - one_degree)
-        else:
-            camera_panning_motor.set_position(camera_panning_motor.get_position())
-        
-        if diff_y > 0 + y_margin:
-            camera_tilt_motor.set_position(camera_tilt_motor.get_position() - movement_Y)
-            if diff_y > 0 + ROI:
-                camera_tilt_motor.set_position(camera_tilt_motor.get_position() - one_degree)
-        elif diff_y < 0 - y_margin:
-            camera_tilt_motor.set_position(camera_tilt_motor.get_position() + movement_Y + 5)
-            if diff_y < 0 - ROI:
-                camera_tilt_motor.set_position(camera_tilt_motor.get_position() + one_degree + 2)
-        else:
-            camera_tilt_motor.set_position(camera_tilt_motor.get_position())
-
-
 
 
     # begin video capture
@@ -222,8 +197,6 @@ def main(_argv):
 
     import os
     import shutil
-
-
 
 
 
@@ -266,9 +239,10 @@ def main(_argv):
         image_data = image_data[np.newaxis, ...].astype(np.float32)
         start_time = time.time()
 
-        videoOutput_no_box.write(frame)
+        no_graphics = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        videoOutput_no_box.write(no_graphics)
 
-        cv2.imwrite("{}/frame_{}.jpg".format(frames_dir,frame_num), frame)
+        cv2.imwrite("{}/frame_{}.jpg".format(frames_dir,frame_num), no_graphics)
 
 
         #Move object servos
@@ -326,7 +300,7 @@ def main(_argv):
         #allowed_classes = list(class_names.values())
         
         # custom allowed classes (uncomment line below to customize tracker for only people)
-        allowed_classes = ['cell phone', 'orange', 'cup']
+        allowed_classes = ['cell phone', 'cup']
 
         # loop through objects and use class index to get class name, allow only classes in allowed_classes list
         names = []
@@ -369,17 +343,25 @@ def main(_argv):
         #Drawing a circle in the center of the frame
         camera_center = [int(frame.shape[1]/2), int(frame.shape[0]/2)]
         cv2.circle(frame, (camera_center[0], camera_center[1]), radius= 1, color= (0, 255, 0), thickness= 10)
-        cv2.putText(frame, "FPS {0}".format(str(int(fps))), (75, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
+
 
         distance = [0,0]
         # update tracks
         for track in tracker.tracks:
             if not track.is_confirmed() or track.time_since_update > 1:
+                track_lost = True
+                tracksuccess = False
+                bound_box = [0, 0, 0, 0]
                 continue 
             bbox = track.to_tlbr()
             class_name = track.get_class()
-            
+
+
+
             tracksuccess = True
+            track_lost = False
+
+            first_detection = False
             # draw bbox on screen
             color = colors[int(track.track_id) % len(colors)]
             color = [i * 255 for i in color]
@@ -391,13 +373,17 @@ def main(_argv):
             center = goalPosition(bbox)
             cv2.circle(frame, (center[0], center[1]), radius =0, color= color, thickness=10)
 
+
+
             print("Bbox: {0}" .format(bbox))
 
-         
+            #Storing value for the output.csv file
+            bound_box = bbox
+
 
             distance, in_roi = calculateDistance(camera_center, center)
 
-            moveMotors(distance[0], distance[1], bbox) #difference in x-cordinates rescpeticly y-cordinates
+            moveMotors(distance[0], distance[1], camera_panning_motor, camera_tilt_motor, roi, margin) #difference in x-cordinates rescpeticly y-cordinates
 
             
 
@@ -405,9 +391,15 @@ def main(_argv):
             if FLAGS.info:
                 print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
 
+
         # calculate frames per second of running detections
         fps = 1.0 / (time.time() - start_time)
         print("FPS: %.2f" % fps)
+
+        frames_per_second = fps
+
+        #Fps text
+        cv2.putText(frame, "FPS {0}".format(str(int(fps))), (75, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
@@ -456,38 +448,40 @@ def main(_argv):
 
 
 
-        cv2.putText(frame, "Sec {0}".format(str(int(main_count.peek()))), (500, 50), cv2.FONT_HERSHEY_COMPLEX, 1,
+        cv2.putText(result, "Sec {0}".format(str(int(main_count.peek()))), (500, 50), cv2.FONT_HERSHEY_COMPLEX, 1,
                 (0, 255, 255), 2)
-        cv2.putText(frame, "Sec in ROI {0}".format(str(int(roi_seconds))), (400, 85), cv2.FONT_HERSHEY_COMPLEX, 1,
+        cv2.putText(result, "Sec in ROI {0}".format(str(int(roi_seconds))), (400, 85), cv2.FONT_HERSHEY_COMPLEX, 1,
                 (254, 0, 255), 2)
 
-        cv2.imshow("Frame", frame)
+        #cv2.imshow("Frame", frame)
 
-        videOutput.write(frame)
+        videOutput.write(result)
 
         mean_roi_sec = round((roi_seconds / main_count.peek()) * 100, 2)
 
-        camera_pos = [camera_panning_motor.get_position(), camera_tilt_motor]
+        camera_pos = [camera_panning_motor.get_position(), camera_tilt_motor.get_position()]
 
-        bbox = track.to_tlbr() 
+        object_pos = [Ax12(3).get_position(),Ax12(4).get_position(),Ax12(5).get_position(),Ax12(6).get_position()]
+
+
 
         #Create a csv to store results
         with open('outputs/output.csv', 'a', newline='') as csvfile:
-            fieldnames = ['Frame', 'FPS', 'Distance_x', 'Distance_y', 'bbox_1', 'bbox_2', 'bbox_3', 'bbox_4',
+            fieldnames = ['Frame', 'FPS', 'Distance_x', 'Distance_y', 'bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax',
                         'Prop_roi(%)', 'Time', 'Roi_time', 'Tracking_success', 'Refound_tracking', 'camera_pan',
                         'camera_tilt', 'object_pan1', 'object_tilt1', 'object_tilt2', 'object_pan2']
             csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             #Fill in values in csv file
             if frame_num ==1:
                 csv_writer.writeheader()
-            csv_writer.writerow({'Frame': str(frame_num), 'FPS': str(fps) ,'Distance_x': str(distance[0]), 'Distance_y': str(distance[1]),
-                                'bbox_1': str(bbox[0]), 'bbox_2': str(bbox[1]), 'bbox_3': str(bbox[2]),
-                                'bbox_4': str(bbox[3]), 'Prop_roi(%)': str(mean_roi_sec), 'Time': str(round(main_count.peek(), 2)),
+            csv_writer.writerow({'Frame': str(frame_num), 'FPS': str(int(frames_per_second)) ,'Distance_x': str(distance[0]), 'Distance_y': str(distance[1]),
+                                'bbox_xmin': str(int(bound_box[0])), 'bbox_ymin': str(int(bound_box[1])), 'bbox_xmax': str(int(bound_box[2])),
+                                'bbox_ymax': str(int(bound_box[3])), 'Prop_roi(%)': str(mean_roi_sec), 'Time': str(round(main_count.peek(), 2)),
                                 'Roi_time': str(round(roi_seconds,2)), 'Tracking_success': str(tracksuccess),
                                 'Refound_tracking': str(refound), 'camera_pan': str(camera_pos[0]),
-                                'camera_tilt':str(camera_pos[1]), 'object_pan1':str(object_move_pos[0]),
-                                'object_tilt1':str(object_move_pos[1]), 'object_tilt2':str(object_move_pos[2]),
-                                'object_pan2':str(object_move_pos[3])})
+                                'camera_tilt':str(camera_pos[1]), 'object_pan1':str(object_pos[0]),
+                                'object_tilt1':str(object_pos[1]), 'object_tilt2':str(object_pos[2]),
+                                'object_pan2':str(object_pos[3])})
 
 
         
@@ -502,6 +496,13 @@ def main(_argv):
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
     cv2.destroyAllWindows()
+    videOutput.release()
+    videoOutput_no_box.release()
+    Ax12.close_port()
+    # stop the count and get elapsed time
+    main_seconds = main_count.finish()
+    roi_count.finish()
+
 
 if __name__ == '__main__':
     try:

@@ -9,7 +9,7 @@ Ax12.open_port()
 Ax12.set_baudrate()
 
 
-Ax12(4).get_position()
+Ax12(2).set_id(6)
 
 def user_input():
     """ Check to see if user wants to continue """

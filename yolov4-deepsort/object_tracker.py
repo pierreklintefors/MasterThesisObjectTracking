@@ -406,7 +406,7 @@ def main(_argv):
         if main_count.peek() > 1 and main_count.peek() < 3:
             object_move_pos = [500, 300, 850, 200 ]
         if main_count.peek() > 3 and main_count.peek() < 5:
-            object_move_pos = [600, 500, 600, 2500]
+            object_move_pos = [600, 500, 600, 250]
         if main_count.peek() > 8.5 and main_count.peek() < 8:
             object_speed = 100
             object_move_pos = [700, 450, 500, 200]

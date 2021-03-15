@@ -80,7 +80,7 @@ camera_tilt_motor = Ax12(2)
 
 
 #Start position for object mover servos
-object_move_pos = [500, 200, 822]
+object_move_pos = [500, 200, 822, 200]
 
 
 start_pan = 500  # Higer turns left
@@ -120,7 +120,7 @@ time.sleep(2)
 # Capture video and create tracker
 cap = cv.VideoCapture(0)
 
-trackerType = "KCF"
+trackerType = "MOSSE"
 
 tracker, increase_margin = createTrackerByName(trackerType)
 
@@ -258,19 +258,19 @@ while True:
 
 
     if main_count.peek() > 1 and main_count.peek() < 3:
-        object_move_pos = [500, 300, 850]
+        object_move_pos = [500, 300, 850, 200 ]
     if main_count.peek() > 3 and main_count.peek() < 5:
-        object_move_pos = [600, 500, 600]
+        object_move_pos = [600, 500, 600, 250]
     if main_count.peek() > 8.5 and main_count.peek() < 8:
         object_speed = 100
-        object_move_pos = [700, 450, 500]
+        object_move_pos = [700, 450, 500, 200]
     if main_count.peek() > 8.5 and main_count.peek() < 10:
         object_speed = 150
-        object_move_pos = [800, 450, 500]
+        object_move_pos = [800, 450, 500, 250]
     if main_count.peek() > 8.5 and main_count.peek() < 12:
-        object_move_pos = [600, 450, 500]
+        object_move_pos = [600, 450, 500, 250]
     if main_count.peek() > 12 and main_count.peek() < 14:
-        object_move_pos = [500, 200, 820]
+        object_move_pos = [500, 200, 820, 239]
 
 
     ##Sarts timer when the ROI is centered
@@ -314,19 +314,25 @@ while True:
 
     mean_roi_sec = round((roi_seconds / main_count.peek()) * 100, 2)
 
+    camera_pos = [camera_panning_motor.get_position(), camera_tilt_motor.get_position()]
+
     #Create a csv to store results
     with open('{}/output.csv'.format(output_folder), 'a', newline='') as csvfile:
-        fieldnames = ['Frame', 'FPS', 'Distance_x', 'Distance_y', 'bbox_1', 'bbox_2', 'bbox_3', 'bbox_4',
-                      'Prop_roi(%)', 'Time', 'Roi_time', 'Tracking_success', 'Refound_tracking']
+        fieldnames = ['Frame', 'FPS', 'Distance_x', 'Distance_y', 'bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax',
+                      'Prop_roi(%)', 'Time', 'Roi_time', 'Tracking_success', 'Refound_tracking', 'camera_pan',
+                      'camera_tilt', 'object_pan1', 'object_tilt1', 'object_tilt2', 'object_pan2']
         csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         #Fill in values in csv file
         if framecount ==1:
             csv_writer.writeheader()
         csv_writer.writerow({'Frame': str(framecount), 'FPS': str(fps) ,'Distance_x': str(distance[0]), 'Distance_y': str(distance[1]),
-                             'bbox_1': str(bbox[0]), 'bbox_2': str(bbox[1]), 'bbox_3': str(bbox[2]),
-                             'bbox_4': str(bbox[3]), 'Prop_roi(%)': str(mean_roi_sec), 'Time': str(round(main_count.peek(), 2)),
+                             'bbox_xmin': str(bbox[0]), 'bbox_ymin': str(bbox[1]), 'bbox_xmax': str(int(bbox[0] + bbox[2])),
+                             'bbox_ymax': str(int(bbox[1] + bbox[3])), 'Prop_roi(%)': str(mean_roi_sec), 'Time': str(round(main_count.peek(), 2)),
                             'Roi_time': str(round(roi_seconds,2)), 'Tracking_success': str(tracksuccess),
-                             'Refound_tracking': str(refound)})
+                             'Refound_tracking': str(refound), 'camera_pan': str(camera_pos[0]),
+                            'camera_tilt':str(camera_pos[1]), 'object_pan1':str(object_move_pos[0]),
+                             'object_tilt1':str(object_move_pos[1]), 'object_tilt2':str(object_move_pos[2]),
+                             'object_pan2':str(object_move_pos[3])})
 
 
 

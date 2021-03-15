@@ -112,8 +112,8 @@ def moveMotors_increased_margin(diff_x, diff_y, bbox, panning, tiliting, roi):
         camera_tilt_motor.set_position(camera_tilt_motor.get_position())
 
 
-def move_object_motors(pos = [0,0,0], speed = 100):
-    motors = [3,4,5]
+def move_object_motors(pos = [0,0,0, 0], speed = 100):
+    motors = [3,4,5, 6]
     for i in motors:
         Ax12(i).set_moving_speed(speed)
     move = True
@@ -128,4 +128,5 @@ def move_object_motors(pos = [0,0,0], speed = 100):
         Ax12(3).set_position(pos[0])
         Ax12(4).set_position(pos[1])
         Ax12(5).set_position(pos[2])
+        Ax12(6).set_position(pos[3])
 

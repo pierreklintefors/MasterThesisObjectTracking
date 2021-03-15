@@ -1,7 +1,10 @@
 #Folder 
 /DynamixelSDK/
 /dxl_control/
+/yolov4-deepsort/checkpoints/
 
+#outputs
+**/[Oo]utput*
 #Goturn model
 goturn.caffemodel
 

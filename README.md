@@ -5,13 +5,13 @@ Code for master thesis project in Cognitive Science
 Trackers from the Opencv library were evaluated in a non-stationary camera with a robotic arm that moves the object. The experiment can be replicated with 6 Dynamixel Ax12 servo motors and a computer with Ubuntu as operative system.
 
 ## Clone the repository to desired folder with git
-´´´
+```
 cd _desired folder_ 
 
 git clone https://github.com/pierreklintefors/MasterThesisObjectTracking.git
 
 cd MasterThesisObjectTracking
-´´´
+```
 
 ### It's recomended to create a virtual environment after cloning the repository.
 ```

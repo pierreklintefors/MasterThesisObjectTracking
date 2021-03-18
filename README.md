@@ -2,7 +2,7 @@
 
 Code for master thesis project in Cognitive Science
 
-Trackers from the Opencv library were evaluated in a non-stationary camera with a robotic arm that moves the object. To replicate the experiment 6 Dynamixel Ax12 are needed as well as running Ubuntu as operative system.
+Trackers from the Opencv library were evaluated in a non-stationary camera with a robotic arm that moves the object. The experiment can be replicated with 6 Dynamixel Ax12 servo motors and a computer with Ubuntu as operative system.
 
 ### It's recomended to create a virtual environment after cloning the repository.
 ```

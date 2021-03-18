@@ -2,7 +2,7 @@
 
 Code for master thesis project in Cognitive Science
 
-Trackers from the Opencv library were evaluated in a non-stationary camera using Dynamixel 12ax motors
+Trackers from the Opencv library were evaluated in a non-stationary camera with a robotic arm that moves the object. To replicate the experiment 6 Dynamixel Ax12 are needed as well as running Ubuntu as operative system.
 
 ### It's recomended to create a virtual environment after cloning the repository.
 ```
@@ -23,6 +23,14 @@ https://github.com/cckieu/dxl_control
 
 ### Download the caffemodel in order to use GOTURN tracker
 https://www.dropbox.com/sh/77frbrkmf9ojfm6/AACgY7-wSfj-LIyYcOgUSZ0Ua?dl=0&preview=goturn.caffemodel
+
+## To run tracker experiment with OpenCV trackers
+Before testing the tracker, positions for the robot arm that moves the object need to be recorded using the record_positions.py. Run the script and move the motors to desired positions, press 'a' on the keyboard to record every position. The positions will be saved to a .txt file named positions.txt that will be used in subsequent script.
+
+###Running test
+The test can be run with the visual_servoing.py. To access the dynamixel motors root privileges (sudo for Ubuntu) is required
+´´´
+´´´
 
 
 ## To set up yolov4 tracker (intructions from the original repo: https://github.com/theAIGuysCode/yolov4-deepsort#downloading-official-yolov4-pre-trained-weights)

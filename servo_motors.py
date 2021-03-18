@@ -113,16 +113,11 @@ def moveMotors_increased_margin(diff_x, diff_y, bbox, panning, tiliting, roi):
 
 
 def move_object_motors(pos = [0,0,0, 0], speed = 100):
-    motors = [3,4,5, 6]
+    motors = [3,4,5,6]
     for i in motors:
         Ax12(i).set_moving_speed(speed)
     move = True
-    motor = 1
-    for value in pos:
-        if value > 850 or value < 200:
-            print("Max or min position value exceeded for object motor {}".format(motor))
-            move = False
-        motor += 1
+
 
     if move:
         Ax12(3).set_position(pos[0])

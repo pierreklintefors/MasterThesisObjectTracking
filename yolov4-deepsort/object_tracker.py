@@ -85,6 +85,34 @@ def main(_argv):
         saved_model_loaded = tf.saved_model.load(FLAGS.weights, tags=[tag_constants.SERVING])
         infer = saved_model_loaded.signatures['serving_default']
 
+    ## Retrieving object moving sequence from text file generated from record_positions.py
+    object_move_pos_strings = []
+    object_move_pos = []
+
+    #Retreive object pos from .txt file.
+    with open("/home/pierre/MasterThesisObjectTracking/positions.txt", 'r') as object_pos_file:
+        for line in object_pos_file:
+            pos = str.split(line)
+            object_move_pos_strings.append(pos)
+        object_pos_file.close()
+
+
+    #Convert positions to integers
+    for element in object_move_pos_strings:
+        ints = [int(item) for item in element]
+        object_move_pos.append(ints)
+    
+    #Boolean for when the object mover sequence is still running
+    still_moving = True
+
+
+    #Boolean that turns true when object has finished to move
+    end_trial = False
+
+    moving_trigger = 0
+
+    
+    
     #Dynmixel setup
     # connecting
     Ax12.open_port()
@@ -93,6 +121,13 @@ def main(_argv):
     #Declaring servomotor for pan and tilt
     camera_panning_motor = Ax12(1)
     camera_tilt_motor = Ax12(2)
+
+
+    # Declaring servomotor for object
+    object_pan1 = Ax12(3)
+    object_tilt1 = Ax12(4)
+    object_tilt2 = Ax12(5)
+    object_pan2 = Ax12(6)
 
     start_pan = 500
     start_tilt = 180
@@ -111,6 +146,9 @@ def main(_argv):
     #Set start position
     camera_panning_motor.set_position(start_pan)
     camera_tilt_motor.set_position(start_tilt)
+
+    #Set start position for object
+    move_object_motors(object_move_pos[0], speed= 500)
 
     camera_panning_motor.set_torque_limit(1023)
     camera_tilt_motor.set_torque_limit(1023)
@@ -151,8 +189,8 @@ def main(_argv):
     first_detection = True
 
 
-    #Start position for object mover servos
-    object_move_pos = [500, 200, 822, 200]
+    #Count for iterating in object position list
+    next_object_pos = 0
 
     object_speed = 100
 
@@ -244,9 +282,19 @@ def main(_argv):
 
         cv2.imwrite("{}/frame_{}.jpg".format(frames_dir,frame_num), no_graphics)
 
+        #Checks if where still moving positions for the object
+        if next_object_pos < len(object_move_pos):
+            print(f'objec_move_pos length = {len(object_move_pos)}')
+            still_moving = True
+        else:
+            print("Object moving sequence is finished")
+            if still_moving:
+                move_finished_time = main_count.peek()
+            still_moving = False
 
-        #Move object servos
-        move_object_motors(object_move_pos, speed= object_speed)
+
+        if still_moving:
+            move_object_motors(object_move_pos[next_object_pos], speed= object_speed)
 
         # run detections on tflite if flag is set
         if FLAGS.framework == 'tflite':
@@ -403,20 +451,19 @@ def main(_argv):
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-        if main_count.peek() > 1 and main_count.peek() < 3:
-            object_move_pos = [500, 300, 850, 200 ]
-        if main_count.peek() > 3 and main_count.peek() < 5:
-            object_move_pos = [600, 500, 600, 250]
-        if main_count.peek() > 8.5 and main_count.peek() < 8:
-            object_speed = 100
-            object_move_pos = [700, 450, 500, 200]
-        if main_count.peek() > 8.5 and main_count.peek() < 10:
-            object_speed = 150
-            object_move_pos = [800, 450, 500, 250]
-        if main_count.peek() > 8.5 and main_count.peek() < 12:
-            object_move_pos = [600, 450, 500, 250]
-        if main_count.peek() > 12 and main_count.peek() < 14:
-            object_move_pos = [500, 200, 820, 239]
+          #moving interval in seconds
+        moving_interval = 3
+        if still_moving:
+            if main_count.peek() > 1 and main_count.peek() < 3:
+                move_trigger = main_count.peek()
+                next_object_pos =1
+            if main_count.peek() > move_trigger:
+                move_trigger += moving_interval
+                next_object_pos += 1
+        else:
+            print("Object move coreography is finished")
+            if main_count.peek() > move_finished_time + 2:
+                end_trial = True
 
         ##Starts timer when the ROI is centered
         if in_roi and tracksuccess:
@@ -482,6 +529,7 @@ def main(_argv):
                                 'camera_tilt':str(camera_pos[1]), 'object_pan1':str(object_pos[0]),
                                 'object_tilt1':str(object_pos[1]), 'object_tilt2':str(object_pos[2]),
                                 'object_pan2':str(object_pos[3])})
+            csvfile.close()
 
 
         
@@ -494,7 +542,7 @@ def main(_argv):
         # if output flag is set, save video file
         if FLAGS.output:
             out.write(result)
-        if cv2.waitKey(1) & 0xFF == ord('q'): break
+        if cv2.waitKey(1) & 0xFF == ord('q') or end_trial: break
     cv2.destroyAllWindows()
     videOutput.release()
     videoOutput_no_box.release()

@@ -13,20 +13,42 @@ main_count = timer_sec.SecondCounter()
 # Create class instance of second counter when tracker is in ROI
 roi_count = timer_sec.Counter_tread()
 
+#Counters fro sec in roi
 roi_seconds = 0
-
 returned_roi_seconds = 0
 
+#Booleans for counting time in roi
 in_roi = False
 been_in_roi = False
 first_entry = True
 start_count = True
 left_roi = False
+
+#Time stope and start for time in roi
 roi_seconds_start = 0
 roi_seconds_stop = 0
 
-last_move_time = 0
 
+object_move_pos_strings = []
+object_move_pos = []
+
+#Retreive object pos from .txt file.
+with open("positions.txt", 'r') as object_pos_file:
+    for line in object_pos_file:
+        pos = str.split(line)
+        object_move_pos_strings.append(pos)
+    object_pos_file.close()
+
+
+ #Convert positions to integers
+for element in object_move_pos_strings:
+    ints = [int(item) for item in element]
+    object_move_pos.append(ints)
+
+
+
+#Boolean that turns true when object has finished to move
+end_trial = False
 
 roi = 30
 margin = 60
@@ -74,13 +96,16 @@ Ax12.set_baudrate()
 
 
 
-# Declaring servomotor for pan and tilt
+# Declaring servomotor for camera
 camera_panning_motor = Ax12(1)
 camera_tilt_motor = Ax12(2)
 
+# Declaring servomotor for object
+object_pan1 = Ax12(3)
+object_tilt1 = Ax12(4)
+object_tilt2 = Ax12(5)
+object_pan2 = Ax12(6)
 
-#Start position for object mover servos
-object_move_pos = [500, 200, 822, 200]
 
 
 start_pan = 500  # Higer turns left
@@ -96,10 +121,10 @@ time.sleep(0.2)
 camera_panning_motor.set_position(start_pan)
 camera_tilt_motor.set_position(start_tilt)
 
-#Start for object
-Ax12(3).set_position(object_move_pos[0])
-Ax12(4).set_position(object_move_pos[1])
-Ax12(5).set_position(object_move_pos[2])
+#Set start position for object
+move_object_motors(object_move_pos[0], speed= 500)
+
+
 
 print("Starting position for pan is: {0} and tilt: {1} \n".format(camera_panning_motor.get_position(),
                                                                   camera_tilt_motor.get_position()))
@@ -120,7 +145,7 @@ time.sleep(2)
 # Capture video and create tracker
 cap = cv.VideoCapture(0)
 
-trackerType = "MOSSE"
+trackerType = "KCF"
 
 tracker, increase_margin = createTrackerByName(trackerType)
 
@@ -167,8 +192,11 @@ fourcc = cv.VideoWriter_fourcc(*'XVID')
 
 
 
-
+#Count for frames
 framecount= 0
+
+#Count for iterating in object position list
+next_object_pos = 0
 
 import os
 import shutil
@@ -198,19 +226,32 @@ videOutput = cv.VideoWriter("{}/output.avi".format(video_dir), fourcc, 30, (fram
 videoOutput_no_box = cv.VideoWriter("{}/output_no_graphics.avi".format(video_dir), fourcc, 30, (frame.shape[1], frame.shape[0]))
 
 
+move_trigger = 0
+
 # start the main count of seconds
 main_count.start()
 while True:
     timer = cv.getTickCount()
     success, frame = cap.read()
     framecount += 1
-
+    
+    #Checks if where still moving positions for the object
+    if next_object_pos < len(object_move_pos):
+        print(f'objec_move_pos length = {len(object_move_pos)}')
+        still_moving = True
+    else:
+        print("Object moving sequence is finished")
+        if still_moving:
+            move_finished_time = main_count.peek()
+        still_moving = False
+        
 
     videoOutput_no_box.write(frame)
 
     cv.imwrite("{}/frame_{}.jpg".format(frames_dir,framecount), frame)
 
-    move_object_motors(object_move_pos, speed= object_speed)
+    if still_moving:
+        move_object_motors(object_move_pos[next_object_pos], speed= object_speed)
 
     tracksuccess, bbox = tracker.update(frame)
 
@@ -255,23 +296,20 @@ while True:
         #else:
          #  moveMotors(distance[0], distance[1], camera_panning_motor, camera_tilt_motor, roi, margin)  # difference in x-cordinates rescpeticly y-cordinates
         moveMotors(distance[0], distance[1], camera_panning_motor, camera_tilt_motor, roi, margin)
-
-
-    if main_count.peek() > 1 and main_count.peek() < 3:
-        object_move_pos = [500, 300, 850, 200 ]
-    if main_count.peek() > 3 and main_count.peek() < 5:
-        object_move_pos = [600, 500, 600, 250]
-    if main_count.peek() > 8.5 and main_count.peek() < 8:
-        object_speed = 100
-        object_move_pos = [700, 450, 500, 200]
-    if main_count.peek() > 8.5 and main_count.peek() < 10:
-        object_speed = 150
-        object_move_pos = [800, 450, 500, 250]
-    if main_count.peek() > 8.5 and main_count.peek() < 12:
-        object_move_pos = [600, 450, 500, 250]
-    if main_count.peek() > 12 and main_count.peek() < 14:
-        object_move_pos = [500, 200, 820, 239]
-
+    
+    #moving interval in seconds
+    moving_interval = 3
+    if still_moving:
+        if main_count.peek() > 1 and main_count.peek() < 3:
+            move_trigger = main_count.peek()
+            next_object_pos =1
+        if main_count.peek() > move_trigger:
+            move_trigger += moving_interval
+            next_object_pos += 1
+    else:
+        print("Object move coreography is finished")
+        if main_count.peek() > move_finished_time + 2:
+            end_trial = True
 
     ##Sarts timer when the ROI is centered
     if in_roi and tracksuccess:
@@ -315,7 +353,7 @@ while True:
     mean_roi_sec = round((roi_seconds / main_count.peek()) * 100, 2)
 
     camera_pos = [camera_panning_motor.get_position(), camera_tilt_motor.get_position()]
-
+    object_pos = [object_pan1.get_position(), object_tilt1.get_position(), object_tilt2.get_position(), object_pan2.get_position() ]
     #Create a csv to store results
     with open('{}/output.csv'.format(output_folder), 'a', newline='') as csvfile:
         fieldnames = ['Frame', 'FPS', 'Distance_x', 'Distance_y', 'bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax',
@@ -339,7 +377,8 @@ while True:
 
 
     key = cv.waitKey(10)
-    if key == 27:
+    if key == 27 or end_trial:
+        print("Ending program")
         break
 
 cap.release()
@@ -352,9 +391,9 @@ cv.destroyAllWindows()
 # stop the count and get elapsed time
 main_seconds = main_count.finish()
 roi_count.finish()
-print("Program ran for {} seconds".format(main_seconds))
+print("Program ran for {} seconds".format(round(main_seconds, 2)))
 
-print("Time spent in ROI: {} seconds".format(roi_seconds))
+print("Time spent in ROI: {} seconds".format(round(roi_seconds,2 )))
 
 print("Proportion time when ROI was centered: {}%".format(round((roi_seconds / main_seconds) * 100, 2)))
 # disconnect

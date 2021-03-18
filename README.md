@@ -6,7 +6,7 @@ Trackers from the Opencv library were evaluated in a non-stationary camera with 
 
 ## Clone the repository to desired folder with git
 ```
-cd _desired directory_
+cd *desired directory*
 
 git clone https://github.com/pierreklintefors/MasterThesisObjectTracking.git
 

@@ -194,6 +194,8 @@ def main(_argv):
 
     object_speed = 100
 
+    move_trigger = 0
+
     #Function that returns center of ROI
     def goalPosition (bbox):
         x, y = int(bbox[0]), int(bbox[1])
@@ -407,7 +409,9 @@ def main(_argv):
 
 
             tracksuccess = True
-            track_lost = False
+            if tracksuccess and track_lost:
+                refound +=1
+                track_lost = False
 
             first_detection = False
             # draw bbox on screen
@@ -493,7 +497,7 @@ def main(_argv):
        
 
 
-
+        ## Graphics to show timer counters
 
         cv2.putText(result, "Sec {0}".format(str(int(main_count.peek()))), (500, 50), cv2.FONT_HERSHEY_COMPLEX, 1,
                 (0, 255, 255), 2)
@@ -525,7 +529,7 @@ def main(_argv):
                                 'bbox_xmin': str(int(bound_box[0])), 'bbox_ymin': str(int(bound_box[1])), 'bbox_xmax': str(int(bound_box[2])),
                                 'bbox_ymax': str(int(bound_box[3])), 'Prop_roi(%)': str(mean_roi_sec), 'Time': str(round(main_count.peek(), 2)),
                                 'Roi_time': str(round(roi_seconds,2)), 'Tracking_success': str(tracksuccess),
-                                'Refound_tracking': str(refound), 'camera_pan': str(camera_pos[0]),
+                                'Refound_tracking': str(refound-1), 'camera_pan': str(camera_pos[0]),
                                 'camera_tilt':str(camera_pos[1]), 'object_pan1':str(object_pos[0]),
                                 'object_tilt1':str(object_pos[1]), 'object_tilt2':str(object_pos[2]),
                                 'object_pan2':str(object_pos[3])})

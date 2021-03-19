@@ -265,6 +265,7 @@ while True:
         bbox_file.close()
         if track_lost:
             refound +=1
+            track_lost =False
     else:
         cv.putText(frame, "Tracking lost", (75, 75), cv.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
         bbox_file = open("{}/bbox.txt".format(text_dir), "a")
@@ -349,6 +350,7 @@ while True:
     cv.imshow("Frame", frame)
 
     videOutput.write(frame)
+
 
     mean_roi_sec = round((roi_seconds / main_count.peek()) * 100, 2)
 

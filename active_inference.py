@@ -2,6 +2,8 @@ import numpy as np
 from dxl_control.Ax12 import Ax12
 import time
 import cv2
+from servo_motors import *
+from timer_seconds import SecondCounter
 
 #Initiliaze motors
 pan_motor = Ax12(1)
@@ -11,25 +13,67 @@ tilt_motor = Ax12(2)
 Ax12.open_port()
 Ax12.set_baudrate()
 
+#set starting pos 
+pan_motor.set_position(500)
+tilt_motor.set_position(200)
+
+time.sleep(2)
+
 #Starts video capturing
 cap = cv2.VideoCapture(0)
 
+main_count = SecondCounter()
+
 
 #Color range for detecting object
-orange_low = np.array([0, 75, 255])
-orange_high = np.array ([27, 205, 255])
+carrot_low = np.array([0, 75, 255])
+carrot_high = np.array ([27, 205, 255])
+
+cup_low = np.array([12, 76, 229])
+cup_high = np.array([75, 238, 255])
 
 green_low = np.array([45 , 100, 50] )
 green_high = np.array([75, 255, 255])
 
+#Margin
 roi = 20
+margin = 50
+
+object_move_pos_strings = []
+object_move_pos = []
+
+object_speed = 100
+
+still_moving = True
+
+#Retreive object pos from .txt file.
+with open("positions.txt", 'r') as object_pos_file:
+    for line in object_pos_file:
+        pos = str.split(line)
+        object_move_pos_strings.append(pos)
+    object_pos_file.close()
+
+
+ #Convert positions to integers
+for element in object_move_pos_strings:
+    ints = [int(item) for item in element]
+    object_move_pos.append(ints)
+
+
+
+#Boolean that turns true when object has finished to move
+end_trial = False
+
+next_object_pos = 0
+
+move_trigger = 0
 
 def draw_contours(low_bound, high_bound, image):
     detection = False
     bbox = 0
     hsv_img = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     curr_mask = cv2.inRange(hsv_img, low_bound, high_bound)
-    hsv_img[curr_mask > 0] = ([75,255,200])
+    hsv_img[curr_mask > 0] = ([75,255,255])
 
     cv2.imshow("mask", curr_mask)
 
@@ -41,7 +85,7 @@ def draw_contours(low_bound, high_bound, image):
 
     for cnt in contours:
         area= cv2.contourArea(cnt)
-        if area > 500:
+        if area > 800:
             (x, y, w, h) = cv2.boundingRect(cnt)
             cv2.rectangle(image, (x,y), (x+w, y+h), (0, 255, 0 ))
             bbox = [x, y, w, h]
@@ -69,13 +113,24 @@ def calculateDistance(cam_center, track_center):
         ROI = True
     return difference, ROI
 
+main_count.start()
 while True:
     sucess, frame = cap.read()
-
-
-    detected , bbox = draw_contours(orange_low, orange_high, frame)
-
+    detected , bbox = draw_contours(cup_low, cup_high, frame)
     camera_center = [int(frame.shape[1] / 2), int(frame.shape[0] / 2)]
+
+     #Checks if where still moving positions for the object
+    if next_object_pos < len(object_move_pos):
+        print(f'objec_move_pos length = {len(object_move_pos)}')
+        still_moving = True
+    else:
+        print("Object moving sequence is finished")
+        if still_moving:
+            move_finished_time = main_count.peek()
+        still_moving = False
+
+    if still_moving:
+        move_object_motors(object_move_pos[next_object_pos], speed= object_speed)
 
 
     #Mark center of image
@@ -85,14 +140,33 @@ while True:
         #Mark center of object
         object_center = goalPosition(bbox)
         cv2.circle(frame,(object_center[0], object_center[1]), 1 , (0,255,0), thickness=1)
+        distance, in_roi = calculateDistance(camera_center, object_center)
+        print(distance)
+        moveMotors(distance[0], distance[1], pan_motor, tilt_motor, roi, margin = margin)
+
+     #moving interval in seconds
+    moving_interval = 3
+    if still_moving:
+        if main_count.peek() > 1 and main_count.peek() < 3:
+            move_trigger = main_count.peek()
+            next_object_pos =1
+        if main_count.peek() > move_trigger:
+            move_trigger += moving_interval
+            next_object_pos += 1
+    else:
+        print("Object move coreography is finished")
+        if main_count.peek() > move_finished_time + 2:
+            end_trial = True
 
     cv2.imshow("frame", frame)
 
+    
+
+    
+
     key = cv2.waitKey(10)
-    if key == 27:
+    if key == 27 or end_trial:
         break
-
-
 
 
 
@@ -110,10 +184,14 @@ q_s = np.random.normal()
 def partial_derivative():
     pass
 
-internal_state = get_internal_state(pan_motor, tilt_motor)
 
 #To get optimal internal state a gradient descent on variational free energy is done
 
 
 
 
+
+main_count.finish()
+Ax12.close_port()
+cap.release()
+cv2.destroyAllWindows()

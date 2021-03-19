@@ -188,7 +188,7 @@ def calculateDistance(cam_center, track_center):
 
 
 # define video codec
-fourcc = cv.VideoWriter_fourcc(*'XVID')
+fourcc = cv.VideoWriter_fourcc(*'MP4V')
 
 
 
@@ -222,8 +222,8 @@ os.makedirs(text_dir)
 os.makedirs(video_dir)
 
 # Create output
-videOutput = cv.VideoWriter("{}/output.avi".format(video_dir), fourcc, 30, (frame.shape[1], frame.shape[0]))
-videoOutput_no_box = cv.VideoWriter("{}/output_no_graphics.avi".format(video_dir), fourcc, 30, (frame.shape[1], frame.shape[0]))
+videOutput = cv.VideoWriter("{}/output.mp4".format(video_dir), fourcc, 30, (frame.shape[1], frame.shape[0]))
+videoOutput_no_box = cv.VideoWriter("{}/output_no_graphics.mp4".format(video_dir), fourcc, 30, (frame.shape[1], frame.shape[0]))
 
 
 move_trigger = 0

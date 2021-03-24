@@ -188,7 +188,7 @@ def calculateDistance(cam_center, track_center):
 
 
 # define video codec
-fourcc = cv.VideoWriter_fourcc(*'MP4V')
+fourcc = cv.VideoWriter_fourcc(*'mp4v')
 
 
 
@@ -237,7 +237,8 @@ while True:
     
     #Checks if where still moving positions for the object
     if next_object_pos < len(object_move_pos):
-        print(f'objec_move_pos length = {len(object_move_pos)}')
+        print(f'object_move_pos length = {len(object_move_pos)}')
+        print(f'next pos = {object_move_pos[next_object_pos]}')
         still_moving = True
     else:
         print("Object moving sequence is finished")
@@ -303,8 +304,7 @@ while True:
     if still_moving:
         if main_count.peek() > 1 and main_count.peek() < 3:
             move_trigger = main_count.peek()
-            next_object_pos =1
-        if main_count.peek() > move_trigger:
+        elif main_count.peek() > move_trigger + 0.02:
             move_trigger += moving_interval
             next_object_pos += 1
     else:
@@ -370,9 +370,9 @@ while True:
                              'bbox_ymax': str(int(bbox[1] + bbox[3])), 'Prop_roi(%)': str(mean_roi_sec), 'Time': str(round(main_count.peek(), 2)),
                             'Roi_time': str(round(roi_seconds,2)), 'Tracking_success': str(tracksuccess),
                              'Refound_tracking': str(refound), 'camera_pan': str(camera_pos[0]),
-                            'camera_tilt':str(camera_pos[1]), 'object_pan1':str(object_move_pos[0]),
-                             'object_tilt1':str(object_move_pos[1]), 'object_tilt2':str(object_move_pos[2]),
-                             'object_pan2':str(object_move_pos[3])})
+                            'camera_tilt':str(camera_pos[1]), 'object_pan1':str(object_pos[0]),
+                             'object_tilt1':str(object_pos[1]), 'object_tilt2':str(object_pos[2]),
+                             'object_pan2':str(object_pos[3])})
 
 
 

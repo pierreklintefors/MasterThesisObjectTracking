@@ -30,6 +30,7 @@ from dxl_control.Ax12 import *
 #servo motors imports
 from servo_motors import *
 
+
 import timer_seconds as timer_sec
 
 import csv
@@ -460,8 +461,7 @@ def main(_argv):
         if still_moving:
             if main_count.peek() > 1 and main_count.peek() < 3:
                 move_trigger = main_count.peek()
-                next_object_pos =1
-            if main_count.peek() > move_trigger:
+            elif main_count.peek() > move_trigger +0.02:
                 move_trigger += moving_interval
                 next_object_pos += 1
         else:

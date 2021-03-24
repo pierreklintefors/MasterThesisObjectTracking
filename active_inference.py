@@ -26,10 +26,10 @@ main_count = SecondCounter()
 
 
 #Color range for detecting object
-carrot_low = np.array([0, 75, 255])
-carrot_high = np.array ([27, 205, 255])
+carrot_low = np.array([2, 68, 60])
+carrot_high = np.array ([19, 255, 255])
 
-cup_low = np.array([12, 76, 229])
+cup_low = np.array([0, 77, 160])
 cup_high = np.array([75, 238, 255])
 
 green_low = np.array([45 , 100, 50] )
@@ -73,7 +73,7 @@ def draw_contours(low_bound, high_bound, image):
     bbox = 0
     hsv_img = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     curr_mask = cv2.inRange(hsv_img, low_bound, high_bound)
-    hsv_img[curr_mask > 0] = ([75,255,255])
+    hsv_img[curr_mask > 0] = ([19,255,255])
 
     cv2.imshow("mask", curr_mask)
 
@@ -85,7 +85,7 @@ def draw_contours(low_bound, high_bound, image):
 
     for cnt in contours:
         area= cv2.contourArea(cnt)
-        if area > 800:
+        if area > 1200:
             (x, y, w, h) = cv2.boundingRect(cnt)
             cv2.rectangle(image, (x,y), (x+w, y+h), (0, 255, 0 ))
             bbox = [x, y, w, h]
@@ -149,8 +149,7 @@ while True:
     if still_moving:
         if main_count.peek() > 1 and main_count.peek() < 3:
             move_trigger = main_count.peek()
-            next_object_pos =1
-        if main_count.peek() > move_trigger:
+        elif main_count.peek() > move_trigger:
             move_trigger += moving_interval
             next_object_pos += 1
     else:

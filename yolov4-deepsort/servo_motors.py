@@ -17,14 +17,15 @@ def moveMotors(diff_x, diff_y, panning, tiliting, roi, margin):
     camera_panning_motor = panning
     camera_tilt_motor = tiliting
     one_degree = int(1023/300)
-    ROI = margin/1.5
+    ROI = margin/1.2
     close_roi = ROI/2
+    big_margin = margin*2
     big_movement_X = int(abs(diff_x/20))
     big_movement_Y = int(abs(diff_y/20))
-    med_movement_X = one_degree *2
-    med_movement_Y = one_degree * 2
+    med_movement_X = one_degree
+    med_movement_Y = one_degree
 
-    if diff_x > margin*3:
+    if diff_x > big_margin:
         camera_panning_motor.set_position(camera_panning_motor.get_position() + big_movement_X + 5)
     elif diff_x > margin:
         camera_panning_motor.set_position(camera_panning_motor.get_position() + med_movement_X + 2)
@@ -36,7 +37,7 @@ def moveMotors(diff_x, diff_y, panning, tiliting, roi, margin):
             camera_panning_motor.set_position(camera_panning_motor.get_position() + one_degree + 1)
             if diff_x < ROI:
                 camera_panning_motor.set_position(camera_panning_motor.get_position() + one_degree + 1)
-    elif diff_x < 0 - margin*3:
+    elif diff_x < 0 - big_margin:
         camera_panning_motor.set_position(camera_panning_motor.get_position() - big_movement_X)
     elif diff_x < 0 - margin:
         camera_panning_motor.set_position(camera_panning_motor.get_position() - med_movement_X)
@@ -49,7 +50,7 @@ def moveMotors(diff_x, diff_y, panning, tiliting, roi, margin):
     else:
         camera_panning_motor.set_position(camera_panning_motor.get_position())
 
-    if diff_y > margin*2:
+    if diff_y > big_margin:
         camera_tilt_motor.set_position(camera_tilt_motor.get_position() + big_movement_Y +2)
     elif diff_y > margin:
         camera_tilt_motor.set_position(camera_tilt_motor.get_position() + med_movement_Y +2)
@@ -61,7 +62,7 @@ def moveMotors(diff_x, diff_y, panning, tiliting, roi, margin):
             camera_tilt_motor.set_position(camera_tilt_motor.get_position() + one_degree +1 )
             if diff_y < close_roi:
                 camera_tilt_motor.set_position(camera_tilt_motor.get_position() + one_degree+ 1)
-    elif diff_y < 0-margin*2:
+    elif diff_y < 0-big_margin:
         camera_tilt_motor.set_position(camera_tilt_motor.get_position() - big_movement_Y)
     elif diff_y < 0-margin:
         camera_tilt_motor.set_position(camera_tilt_motor.get_position() - med_movement_Y)

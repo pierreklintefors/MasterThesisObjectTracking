@@ -65,7 +65,6 @@ def createTrackerByName(trackerType):
         tracker = cv.TrackerBoosting_create()
     elif trackerType == trackerTypes[1]:
         tracker = cv.TrackerMIL_create()
-        increased_margin = True
     elif trackerType == trackerTypes[2]:
         tracker = cv.TrackerKCF_create()
     elif trackerType == trackerTypes[3]:
@@ -74,12 +73,12 @@ def createTrackerByName(trackerType):
         tracker = cv.TrackerMedianFlow_create()
     elif trackerType == trackerTypes[5]:
         tracker = cv.TrackerGOTURN_create()
-        increased_margin = True
+        #increased_margin = True
     elif trackerType == trackerTypes[6]:
         tracker = cv.TrackerMOSSE_create()
     elif trackerType == trackerTypes[7]:
         tracker = cv.TrackerCSRT_create()
-        increased_margin = True
+        #increased_margin = True
     else:
         tracker = None
         print('Incorrect tracker name')
@@ -109,7 +108,7 @@ object_pan2 = Ax12(6)
 
 
 start_pan = 500  # Higer turns left
-start_tilt = 180  # Higher turns down
+start_tilt = 230  # Higher goes up
 
 ##Lower speed when camera is is moving to start position
 # camera_panning_motor.set_moving_speed(80)
@@ -134,8 +133,8 @@ camera_panning_motor.set_torque_limit(1023)
 camera_tilt_motor.set_torque_limit(1023)
 
 # Set speed
-camera_panning_motor.set_moving_speed(400)
-camera_tilt_motor.set_moving_speed(400)
+camera_panning_motor.set_moving_speed(1000)
+camera_tilt_motor.set_moving_speed(1000)
 
 one_degree = int(camera_panning_motor.get_torque_limit() / 300)
 
@@ -311,6 +310,9 @@ while True:
         print("Object move coreography is finished")
         if main_count.peek() > move_finished_time + 2:
             end_trial = True
+            roi_seconds_stop = roi_count.peek() - roi_seconds_start
+            roi_seconds += roi_seconds_stop
+
 
     ##Sarts timer when the ROI is centered
     if in_roi and tracksuccess:
@@ -359,8 +361,8 @@ while True:
     #Create a csv to store results
     with open('{}/output.csv'.format(output_folder), 'a', newline='') as csvfile:
         fieldnames = ['Frame', 'FPS', 'Distance_x', 'Distance_y', 'bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax',
-                      'Prop_roi(%)', 'Time', 'Roi_time', 'Tracking_success', 'Refound_tracking', 'camera_pan',
-                      'camera_tilt', 'object_pan1', 'object_tilt1', 'object_tilt2', 'object_pan2']
+                      'Prop_roi(%)', 'Time', 'Roi_time', 'In_roi', 'Tracking_success', 'Refound_tracking', 'camera_pan',
+                      'camera_tilt', 'object_pan1', 'object_tilt1', 'object_tilt2', 'object_pan2', 'img_center_x', 'img_center_y']
         csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         #Fill in values in csv file
         if framecount ==1:
@@ -368,11 +370,12 @@ while True:
         csv_writer.writerow({'Frame': str(framecount), 'FPS': str(fps) ,'Distance_x': str(distance[0]), 'Distance_y': str(distance[1]),
                              'bbox_xmin': str(bbox[0]), 'bbox_ymin': str(bbox[1]), 'bbox_xmax': str(int(bbox[0] + bbox[2])),
                              'bbox_ymax': str(int(bbox[1] + bbox[3])), 'Prop_roi(%)': str(mean_roi_sec), 'Time': str(round(main_count.peek(), 2)),
-                            'Roi_time': str(round(roi_seconds,2)), 'Tracking_success': str(tracksuccess),
+                            'Roi_time': str(round(roi_seconds,2)), 'In_roi': str(in_roi) ,'Tracking_success': str(tracksuccess),
                              'Refound_tracking': str(refound), 'camera_pan': str(camera_pos[0]),
                             'camera_tilt':str(camera_pos[1]), 'object_pan1':str(object_pos[0]),
                              'object_tilt1':str(object_pos[1]), 'object_tilt2':str(object_pos[2]),
-                             'object_pan2':str(object_pos[3])})
+                             'object_pan2':str(object_pos[3]), 'img_center_x': str(camera_center[0]), 'img_center_y': str(camera_center[1])})
+        csvfile.close()
 
 
 

@@ -131,7 +131,7 @@ def main(_argv):
     object_pan2 = Ax12(6)
 
     start_pan = 500
-    start_tilt = 180
+    start_tilt = 230
 
     # define video codec
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -519,8 +519,8 @@ def main(_argv):
         #Create a csv to store results
         with open('outputs/output.csv', 'a', newline='') as csvfile:
             fieldnames = ['Frame', 'FPS', 'Distance_x', 'Distance_y', 'bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax',
-                        'Prop_roi(%)', 'Time', 'Roi_time', 'Tracking_success', 'Refound_tracking', 'camera_pan',
-                        'camera_tilt', 'object_pan1', 'object_tilt1', 'object_tilt2', 'object_pan2']
+                      'Prop_roi(%)', 'Time', 'Roi_time', 'In_roi', 'Tracking_success', 'Refound_tracking', 'camera_pan',
+                      'camera_tilt', 'object_pan1', 'object_tilt1', 'object_tilt2', 'object_pan2', 'img_center_x', 'img_center_y']
             csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             #Fill in values in csv file
             if frame_num ==1:
@@ -532,8 +532,12 @@ def main(_argv):
                                 'Refound_tracking': str(refound-1), 'camera_pan': str(camera_pos[0]),
                                 'camera_tilt':str(camera_pos[1]), 'object_pan1':str(object_pos[0]),
                                 'object_tilt1':str(object_pos[1]), 'object_tilt2':str(object_pos[2]),
-                                'object_pan2':str(object_pos[3])})
+                                'object_pan2':str(object_pos[3]), 'img_center_x': str(camera_center[0]),
+                                 'img_center_y': str(camera_center[1])})
             csvfile.close()
+
+
+
 
 
         

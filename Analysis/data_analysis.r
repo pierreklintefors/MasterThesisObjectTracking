@@ -98,7 +98,7 @@ performance_table <- function(df_list){
     per_mat[df,'tracking loss'] = num_track_loss
     per_mat[df,'recovered tracking'] = num_track_rec
     
-    if(num_track_loss = 0){per_mat[df,'RT/TL'] = NA}
+    if(num_track_loss == 0){per_mat[df,'RT/TL'] = NA}
     else{per_mat[df,'RT/TL'] = round(num_track_rec/num_track_loss) }
    
     

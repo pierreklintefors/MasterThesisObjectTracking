@@ -3,7 +3,7 @@ rm(list=ls(all=TRUE))
 graphics.off()
 
 # Check that required packages are installed:
-want = c("dplyr", "ggplot2", "gridExtra")
+want = c("dplyr", "ggplot2", "gridExtra", 'ggpubr')
 have = want %in% rownames(installed.packages())
 if ( any(!have) ) { install.packages( want[!have] ) }
 
@@ -20,6 +20,14 @@ for (tracker in 1:length(trackers_list)){
   assign(paste('gt_', trackers_list[tracker], sep = ''), 
           read.csv2(file = paste('TrackersOutput/', trackers_list[tracker], '_output/gt_bbox.csv', sep = ''), sep = ',', stringsAsFactors = FALSE))
 }
+
+#correct in roi for yolov4-deepsort
+for (row in 1:nrow(yolov4deepsort_data)){ 
+  if(abs(yolov4deepsort_data$Distance_x[row]) <= 30 && abs(yolov4deepsort_data$Distance_y[row]) <= 30 && abs(yolov4deepsort_data$bbox_xmax[row]) > 0){
+   yolov4deepsort_data$In_roi[row] = 'True'} 
+  #else{
+   #  yolov4deepsort_data$In_roi='False'}
+  }
 
 correct_gt_dataset <- function(gt){
   gt$frame = gt$frame +1
@@ -81,8 +89,8 @@ performance_table <- function(df_list){
     data = get(df_list[df])
     last_row = nrow(data)
     fps = with(data, as.numeric(Frame[last_row])/as.numeric(Time[last_row]))
-    xdiff = with (data, mean(gt_object_center_xdiff, na.rm = TRUE ))
-    ydiff = with (data, mean(gt_object_center_ydiff, na.rm = TRUE ))
+    xdiff = with (data, mean(abs(gt_object_center_xdiff), na.rm = TRUE ))
+    ydiff = with (data, mean(abs(gt_object_center_ydiff), na.rm = TRUE ))
     prop_track_roi = (sum(data$In_roi=='True', na.rm = TRUE))/last_row
     prop_gt_roi = (sum(data$gt_in_roi=='True', na.rm = TRUE))/last_row
     prop_obj_in_frame = (sum(data$object_in_frame))/last_row
@@ -130,85 +138,31 @@ for(df in 1:length(df_name_list)) {
 
 performance_matrix = performance_table(df_name_list)  
 
-write(performance_matrix, file = 'performanceTable.txt')
+write.table(performance_matrix, file = 'performanceTable.txt', sep = ' & ', col.names = TRUE, row.names = TRUE)
 
 
 library(ggplot2)
 
-MOSSE_plot = ggplot(MOSSE_data,aes(gt_object_center_xdiff, gt_object_center_ydiff))+
-  geom_path(color = 'darkgreen')+
-  geom_hline(yintercept = 0,color = 'black') +
-  geom_vline(xintercept = 0,color = 'black') +
-  scale_y_reverse()+
-  scale_x_reverse()+
-  xlab("MOSSE")+
-  ylab("")+
-  coord_fixed()
+plot_trajectories <- function (df_list, tracker_list){
+  plots = list()
+  for (df in 1:length(df_list)){
+    data = get(df_list[df])
+    tracker_name = tracker_list[df]
+    plot = ggplot(data,aes(Distance_x, Distance_y))+
+      geom_path(mapping = aes(as.numeric(Distance_x + gt_object_center_xdiff), as.numeric(Distance_y + gt_object_center_ydiff)), color= 'green')+
+      geom_path(color = 'blue')+
+      xlab(paste0(tracker_name))+
+      ylab("")+
+      geom_hline(yintercept = 0,color = 'black') +
+      geom_vline(xintercept = 0,color = 'black') 
+      coord_fixed(xlim = 500, ylim = 800)
+      plots [[df]] = assign(paste0(tracker_name, '_plot') , plot + theme_bw())
+  }
+  
+  ggpubr::ggarrange(plotlist = plots, ncol = 2, nrow = 4, align = 'hv')
+ 
+}
 
-MOSSE_plot
-
-KCF_plot = ggplot(KCF_data,aes(gt_object_center_xdiff, gt_object_center_ydiff))+
-  geom_path(color = 'darkgreen')+
-  geom_hline(yintercept = 0,color = 'black') +
-  geom_vline(xintercept = 0,color = 'black') +
-  scale_y_reverse()+
-  scale_x_reverse()+
-  xlab("KCF")+
-  ylab("")+
-  coord_fixed()
-KCF_plot
-
-GOTURN_plot = ggplot(GOTURN_data,aes(gt_object_center_xdiff, gt_object_center_ydiff))+
-  geom_path(color = 'darkgreen')+
-  geom_hline(yintercept = 0,color = 'black') +
-  geom_vline(xintercept = 0,color = 'black') +
-  scale_y_reverse()+
-  scale_x_reverse()+
-  xlab("GOTURN")+
-  ylab("")+
-  coord_fixed()
-
-MEDIANFLOW_plot = ggplot(MEDIANFLOW_data,aes(gt_object_center_xdiff, gt_object_center_ydiff))+
-  geom_path(color = 'darkgreen')+
-  geom_hline(yintercept = 0,color = 'black') +
-  geom_vline(xintercept = 0,color = 'black') +
-  scale_y_reverse()+
-  scale_x_reverse()+
-  xlab("MEDIAN FLOW")+
-  ylab("")+
-  coord_fixed()
-
-MIL_plot = ggplot(MIL_data,aes(gt_object_center_xdiff, gt_object_center_ydiff))+
-  geom_path(color = 'darkgreen')+
-  geom_hline(yintercept = 0,color = 'black') +
-  geom_vline(xintercept = 0,color = 'black') +
-  scale_y_reverse()+
-  scale_x_reverse()+
-  xlab("MIL")+
-  ylab("")+
-  coord_fixed()
-
-CSRT_plot = ggplot(CSRT_data,aes(gt_object_center_xdiff, gt_object_center_ydiff))+
-  geom_path(color = 'darkgreen')+
-  geom_hline(yintercept = 0,color = 'black') +
-  geom_vline(xintercept = 0,color = 'black') +
-  scale_y_reverse()+
-  scale_x_reverse()+
-  xlab("CSRT")+
-  ylab("")+
-  coord_fixed()
-
-yolov4deepsort_plot = ggplot(yolov4deepsort_data,aes(gt_object_center_xdiff, gt_object_center_ydiff))+
-  geom_path(color = 'darkgreen')+
-  geom_hline(yintercept = 0,color = 'black') +
-  geom_vline(xintercept = 0,color = 'black') +
-  scale_y_reverse()+
-  scale_x_reverse()+
-  xlab("YOLOv4-Deepsort")+
-  ylab("")+
-  coord_fixed()
+plot_trajectories(df_name_list, trackers_list)
 
 
-
-library(gridExtra)
-grid.arrange(KCF_plot, MEDIANFLOW_plot, GOTURN_plot, MOSSE_plot, yolov4deepsort_plot, CSRT_plot, MIL_plot, nrow = 4)

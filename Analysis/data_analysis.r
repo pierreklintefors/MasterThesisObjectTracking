@@ -3,7 +3,7 @@ rm(list=ls(all=TRUE))
 graphics.off()
 
 # Check that required packages are installed:
-want = c("dplyr", "ggplot2", "gridExtra", 'ggpubr')
+want = c("dplyr", "ggplot2", "gridExtra", 'ggpubr', 'extrafont')
 have = want %in% rownames(installed.packages())
 if ( any(!have) ) { install.packages( want[!have] ) }
 
@@ -138,25 +138,34 @@ for(df in 1:length(df_name_list)) {
 
 performance_matrix = performance_table(df_name_list)  
 
-write.table(performance_matrix, file = 'performanceTable.txt', sep = ' & ', col.names = TRUE, row.names = TRUE)
+write.table(performance_matrix, file = 'performanceTable.txt', sep = ' & ', col.names = TRUE, row.names = TRUE, quote = FALSE)
 
 
 library(ggplot2)
 
+library(extrafont)
+loadfonts(device = "win")
+
+
+
+
 plot_trajectories <- function (df_list, tracker_list){
   plots = list()
+
   for (df in 1:length(df_list)){
     data = get(df_list[df])
     tracker_name = tracker_list[df]
+    xlab = paste0(tracker_name)
+    if (paste0(tracker_name)=='yolov4deepsort'){xlab = "YOLOv4-DeepSORT"}
     plot = ggplot(data,aes(Distance_x, Distance_y))+
-      geom_path(mapping = aes(as.numeric(Distance_x + gt_object_center_xdiff), as.numeric(Distance_y + gt_object_center_ydiff)), color= 'green')+
+      geom_path(mapping = aes(as.numeric(Distance_x + gt_object_center_xdiff), as.numeric(Distance_y + gt_object_center_ydiff)), color= 'green3')+
       geom_path(color = 'blue')+
-      xlab(paste0(tracker_name))+
+      xlab(xlab)+
       ylab("")+
       geom_hline(yintercept = 0,color = 'black') +
       geom_vline(xintercept = 0,color = 'black') 
       coord_fixed(xlim = 500, ylim = 800)
-      plots [[df]] = assign(paste0(tracker_name, '_plot') , plot + theme_bw())
+      plots [[df]] = assign(paste0(tracker_name, '_plot') , plot + theme_bw() + theme(text=element_text(size=12,  family="serif")))
   }
   
   ggpubr::ggarrange(plotlist = plots, ncol = 2, nrow = 4, align = 'hv')

@@ -33,16 +33,23 @@ correct_gt_dataset <- function(gt){
   gt$frame = gt$frame +1
   doubles = c()
   
-  #check after doubles
   for (j in 2:nrow(gt)){
-    if(gt$frame[j]==gt$frame[j-1] && gt$outside[j-1]==1){doubles = gt[j, 'outside']=1}
+    if(gt$frame[j]==gt$frame[j-1] && gt$outside[j-1]==1){
+      doubles = c(doubles, gt$frame[j])
+    }
   }
+  print(paste0("The following frames were doubles and these rows were removed:" , doubles))
+  gt = gt %>% distinct(frame, .keep_all = TRUE)
 
-  
-  gt = distinct(gt)
+ 
+
   
   return(gt)
 }
+  
+
+
+gt_GOTURN_corr = correct_gt_dataset(gt_GOTURN)
 
 calculate_performance <- function(dataframe, gt){
   
@@ -162,9 +169,11 @@ plot_trajectories <- function (df_list, tracker_list){
       geom_path(color = 'blue')+
       xlab(xlab)+
       ylab("")+
+      xlim(-500,500)+
+      ylim(-400,400)+
       geom_hline(yintercept = 0,color = 'black') +
       geom_vline(xintercept = 0,color = 'black') 
-      coord_fixed(xlim = 500, ylim = 800)
+
       plots [[df]] = assign(paste0(tracker_name, '_plot') , plot + theme_bw() + theme(text=element_text(size=12,  family="serif")))
   }
   
@@ -174,4 +183,54 @@ plot_trajectories <- function (df_list, tracker_list){
 
 plot_trajectories(df_name_list, trackers_list)
 
+
+gt_corr_df_list = c("gt_CSRT_corr", "gt_GOTURN_corr", "gt_KCF_corr", "gt_MEDIANFLOW_corr", "gt_MIL_corr", "gt_MOSSE_corr", "gt_TLD_corr", "gt_yolov4deepsort_corr")
+
+intersection_over_union <- function (df_list, gt_list){
+  
+  average_ious = matrix(nrow = length(df_list),  ncol = 1)
+  rownames(average_ious) = df_list
+  
+  for (df in 1:length(df_list)){
+    pred_data = get(df_list[df])
+    gt_data= get(gt_list[df])
+    
+    gt_boxes = subset(gt_data, select = c('frame', 'xmin', 'ymin', 'xmax', 'ymax')) 
+    
+    pred_boxes = subset(pred_data, select = c('Frame','bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax'))
+    
+    iou_list = c()
+    
+    for (i in 1:nrow(gt_boxes)){
+      boxA = as.numeric(gt_boxes[gt_boxes$frame == i, 2:5])
+      boxB = round(as.numeric(pred_boxes[pred_boxes$Frame == i, 2:5]), 0)
+      
+      xA = max(boxA[1], boxB[1])
+      yA = max(boxA[2], boxB[2])
+      xB = min(boxA[3], boxB[3])
+      yB = min(boxA[4], boxB[4])
+      # compute the area of intersection rectangle
+      interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+      # compute the area of both the prediction and ground-truth
+      # rectangles
+      boxAArea = (boxA[3] - boxA[1] + 1) * (boxA[4] - boxA[2] + 1)
+      boxBArea = (boxB[3] - boxB[1] + 1) * (boxB[4] - boxB[2] + 1)
+      # compute the intersection over union by taking the intersection
+      # area and dividing it by the sum of prediction + ground-truth
+      # areas - the interesection area
+      iou = interArea / (boxAArea + boxBArea - interArea)
+      # return the intersection over union value
+      
+      iou_list = c(iou_list , iou)
+    }
+    
+    average_iou = sum(iou_list, na.rm = TRUE) / nrow(pred_boxes)
+    
+    average_ious[df,1] = average_iou
+  }
+  
+  return(average_ious)
+}
+
+average_ious = intersection_over_union(df_list = df_name_list, gt_list = gt_corr_df_list)  
 

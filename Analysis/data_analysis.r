@@ -3,7 +3,7 @@ rm(list=ls(all=TRUE))
 graphics.off()
 
 # Check that required packages are installed:
-want = c("dplyr", "ggplot2", "gridExtra", 'ggpubr', 'extrafont')
+want = c("dplyr", "ggplot2", "gridExtra", 'ggpubr', 'extrafont', "RColorBrewer", "wesanderson")
 have = want %in% rownames(installed.packages())
 if ( any(!have) ) { install.packages( want[!have] ) }
 
@@ -38,10 +38,11 @@ correct_gt_dataset <- function(gt){
       doubles = c(doubles, gt$frame[j])
     }
   }
-  print(paste0("The following frames were doubles and these rows were removed:" , doubles))
   gt = gt %>% distinct(frame, .keep_all = TRUE)
 
  
+  gt = gt[order(gt$frame), ]
+  
 
   
   return(gt)
@@ -49,7 +50,7 @@ correct_gt_dataset <- function(gt){
   
 
 
-gt_GOTURN_corr = correct_gt_dataset(gt_GOTURN)
+
 
 calculate_performance <- function(dataframe, gt){
   
@@ -58,8 +59,8 @@ calculate_performance <- function(dataframe, gt){
   roi = 30
     
 
-  dataframe$bbox_center_x = dataframe$img_center_x + dataframe$Distance_x
-  dataframe$bbox_center_y = dataframe$img_center_y + dataframe$Distance_y
+  dataframe$bbox_center_x = as.numeric(dataframe$bbox_xmin) + ((as.numeric(dataframe$bbox_xmax) -as.numeric(dataframe$bbox_xmin)) / 2)
+  dataframe$bbox_center_y = as.numeric(dataframe$bbox_ymin) + ((as.numeric(dataframe$bbox_ymax) -as.numeric(dataframe$bbox_ymin)) / 2)
   dataframe$gt_object_center_xdiff = NA
   dataframe$gt_object_center_xdiff = NA
   dataframe$gt_in_roi = NA
@@ -70,10 +71,15 @@ calculate_performance <- function(dataframe, gt){
   for (j in 1:nrow(gt)){
     xdiff = as.numeric(dataframe[gt[j,'frame'], 'bbox_center_x']) - as.numeric(gt[j,'obj_center_x'])
     ydiff = as.numeric(dataframe[gt[j,'frame'], 'bbox_center_y']) - as.numeric(gt[j,'obj_center_y'])
-    dataframe[gt[j,'frame'], 'gt_object_center_xdiff'] = xdiff
-    dataframe[gt[j,'frame'], 'gt_object_center_ydiff'] = ydiff
     
-    if(gt[j, 'outside']==0){dataframe[gt[j,'frame'], 'object_in_frame'] = 1}
+    
+    
+    if(gt[j, 'outside']==0 && dataframe[gt[j,'frame'], 'Tracking_success'] == "True" ){
+      dataframe[gt[j,'frame'], 'object_in_frame'] = 1
+        dataframe[gt[j,'frame'], 'gt_object_center_xdiff'] = xdiff
+        dataframe[gt[j,'frame'], 'gt_object_center_ydiff'] = ydiff
+      
+      }
     
     if (abs(xdiff)+abs(dataframe$Distance_x) < roi && abs(ydiff) + abs(dataframe$Distance_y) < roi ){dataframe[gt[j,'frame'], 'gt_in_roi'] = TRUE}
     else {dataframe[gt[j,'frame'], 'gt_in_roi'] = FALSE}
@@ -169,8 +175,8 @@ plot_trajectories <- function (df_list, tracker_list){
       geom_path(color = 'blue')+
       xlab(xlab)+
       ylab("")+
-      xlim(-500,500)+
-      ylim(-400,400)+
+      xlim(-300,300)+
+      ylim(-200,200)+
       geom_hline(yintercept = 0,color = 'black') +
       geom_vline(xintercept = 0,color = 'black') 
 
@@ -186,19 +192,10 @@ plot_trajectories(df_name_list, trackers_list)
 
 gt_corr_df_list = c("gt_CSRT_corr", "gt_GOTURN_corr", "gt_KCF_corr", "gt_MEDIANFLOW_corr", "gt_MIL_corr", "gt_MOSSE_corr", "gt_TLD_corr", "gt_yolov4deepsort_corr")
 
-intersection_over_union <- function (df_list, gt_list){
-  
-  average_ious = matrix(nrow = length(df_list),  ncol = 1)
-  rownames(average_ious) = df_list
-  
-  for (df in 1:length(df_list)){
-    pred_data = get(df_list[df])
-    gt_data= get(gt_list[df])
-    
-    gt_boxes = subset(gt_data, select = c('frame', 'xmin', 'ymin', 'xmax', 'ymax')) 
-    
-    pred_boxes = subset(pred_data, select = c('Frame','bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax'))
-    
+
+#Function for IoU. Returns list of IoU for frames with visible object 
+intersection_over_union <- function (pred_boxes, gt_boxes){
+
     iou_list = c()
     
     for (i in 1:nrow(gt_boxes)){
@@ -224,13 +221,85 @@ intersection_over_union <- function (df_list, gt_list){
       iou_list = c(iou_list , iou)
     }
     
-    average_iou = sum(iou_list, na.rm = TRUE) / nrow(pred_boxes)
-    
-    average_ious[df,1] = average_iou
+  return(iou_list)
   }
   
-  return(average_ious)
+  
+
+
+#Average IoU for each tracker, saves in matrix
+average_ious = matrix(nrow = length(df_name_list),  ncol = 1)
+rownames(average_ious) = trackers_list
+for (df in 1:length(df_name_list)){
+  pred_data = get(df_name_list[df])
+  gt_data= get(gt_corr_df_list[df])
+  
+  gt_boxes = subset(gt_data, select = c('frame', 'xmin', 'ymin', 'xmax', 'ymax')) 
+  
+  pred_boxes = subset(pred_data, select = c('Frame','bbox_xmin', 'bbox_ymin', 'bbox_xmax', 'bbox_ymax'))
+  
+  assign(paste0(trackers_list[df], "_iou"), intersection_over_union (pred_boxes = pred_boxes, gt_boxes = gt_boxes ))
+  
+  average_iou = round(sum(get(paste0(trackers_list[df], "_iou")), na.rm = TRUE) / nrow(pred_boxes), 2)
+  
+  average_ious[df,1] = average_iou
 }
 
-average_ious = intersection_over_union(df_list = df_name_list, gt_list = gt_corr_df_list)  
+#Making matrix of succesrates fpr different overlap thresholds
+thresholds = c(seq(from = 0, to = 1 , by = 0.1))
+overlap_matrix = matrix(nrow = length(trackers_list), ncol= length(thresholds))
+colnames(overlap_matrix) = thresholds
+rownames(overlap_matrix) = trackers_list
 
+
+for (tracker in 1:length(trackers_list)){
+  ious = get(paste0(trackers_list[tracker], "_iou"))
+  
+  for (i in 1:length(thresholds)){
+    successrate = length(which(ious > thresholds[i])) / nrow(get(paste0(trackers_list[tracker], "_data")))
+    
+    overlap_matrix[tracker, i] = successrate
+    
+  }
+  
+}
+
+
+#Making a dataframe with the values from overlap matirx, for plotting
+trackers = rep(trackers_list, each = length(thresholds))
+
+thres = rep(thresholds, times = length(trackers_list))
+  
+overlap_df = data.frame(trackers, thres)
+overlap_df$successrate = NA
+
+start_value = 1
+
+for (tracker in 1:length(trackers_list)){
+  stop_value = start_value + 10
+  overlap_df$successrate[start_value:stop_value] = overlap_matrix[trackers_list[tracker], ]
+  start_value = stop_value +1
+
+}
+
+colnames(overlap_df) = c("Trackers", "thres", "successrate")
+
+library(RColorBrewer)
+library(ggsci)
+library(wesanderson)
+overlap_plot = ggplot(overlap_df, aes(thres, successrate, group= Trackers, color = Trackers)) + 
+  geom_line(size = 1.2) +
+  scale_x_continuous(name = "Overlap threshold", breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1), expand = c(0,0))+
+  scale_y_continuous(name = "Success rate", breaks = seq(0, 1, 0.2), expand = c(0,0.02) )+
+  scale_fill_manual(values = wes_palette("Darjeeling1"))
+  
+overlap_plot + theme_bw(base_family = "Serif") + theme( legend.position = c(0.90,0.769), legend.key = element_rect("white"), 
+                                                        legend.background = element_rect("gray92"), legend.box.margin =  margin(0,0,0,0, 'cm'),
+                                                        legend.key.size = unit(0.98, 'lines'), plot.margin = margin(0.1, 1, 0.1,0.2, 'cm'),
+                                                        axis.title.x  = element_text(margin= margin(0.25,0,0,0, 'cm')),
+                                                        axis.title.y  = element_text(margin= margin(0,0.25,0,0, 'cm')))
+
+
+
+
+average_ious
